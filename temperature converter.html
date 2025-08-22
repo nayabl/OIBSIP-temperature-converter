@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Temperature Converter</title>
+  <meta name="description" content="Convert temperatures between Celsius, Fahrenheit, and Kelvin with validation." />
+  <style>
+    :root{
+      --bg:#0b0f17;--panel:#121826;--text:#e6e9ef;--muted:#9aa4b2;--accent:#6ea8fe;--border:#2a3344;--radius:16px;--maxw:720px
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--text);}
+    .wrap{width:min(100% - 2rem,var(--maxw));margin:48px auto}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:0 6px 30px rgba(0,0,0,.2)}
+    h1{margin:0 0 8px;font-size:clamp(1.4rem,2vw + 1rem,2rem)}
+    p.lead{color:var(--muted);margin:0 0 18px}
+    label{font-weight:600}
+    input,select,button{width:100%;padding:.8rem .9rem;border-radius:12px;border:1px solid var(--border);background:#0c1220;color:var(--text)}
+    .grid{display:grid;gap:12px;grid-template-columns:1fr}
+    .row{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+    button{background:linear-gradient(180deg,var(--accent),#4477ee);color:#001029;border:none;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .help{color:var(--muted);font-size:.9rem}
+    .result{margin-top:16px;padding:14px;border:1px dashed var(--border);border-radius:12px;min-height:48px;display:flex;align-items:center}
+    .error{color:#ff9aa2}
+    footer{margin-top:18px;color:var(--muted);font-size:.9rem;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="form" aria-labelledby="title">
+      <h1 id="title">Temperature Converter</h1>
+      <p class="lead">Type a value, choose the units, then click <strong>Convert</strong>. Supports °C, °F, and K.</p>
+
+      <div class="grid">
+        <div>
+          <label for="tempInput">Temperature</label>
+          <input id="tempInput" type="number" step="any" placeholder="e.g. 32" autocomplete="off" />
+          <div class="help">Accepts negative and decimal values. We'll validate it's a number.</div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="fromUnit">From</label>
+            <select id="fromUnit">
+              <option value="C">Celsius (°C)</option>
+              <option value="F">Fahrenheit (°F)</option>
+              <option value="K">Kelvin (K)</option>
+            </select>
+          </div>
+          <div>
+            <label for="toUnit">To</label>
+            <select id="toUnit">
+              <option value="F">Fahrenheit (°F)</option>
+              <option value="C">Celsius (°C)</option>
+              <option value="K">Kelvin (K)</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="convertBtn" type="button">Convert</button>
+        <div id="result" class="result" aria-live="polite">Result will appear here.</div>
+      </div>
+
+      <footer>
+        Try examples: 0 °C → °F (32 °F), 32 °F → °C (0 °C), 300 K → °C (26.85 °C)
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('tempInput');
+    const from = document.getElementById('fromUnit');
+    const to = document.getElementById('toUnit');
+    const resultBox = document.getElementById('result');
+    const btn = document.getElementById('convertBtn');
+
+    function clampPhysicalLimits(val, unit){
+      // Optional physical plausibility checks (absolute zero):
+      const limits = { C: -273.15, F: -459.67, K: 0 };
+      return val >= limits[unit];
+    }
+
+    function fmt(n){
+      // Format to up to 2 decimals, drop trailing zeros
+      const s = Number(n).toFixed(2);
+      return s.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    }
+
+    function convertValue(value, fromU, toU){
+      if (fromU === toU) return value; // no-op
+      let c; // pivot through Celsius
+      switch(fromU){
+        case 'C': c = value; break;
+        case 'F': c = (value - 32) * 5/9; break;
+        case 'K': c = value - 273.15; break;
+      }
+      switch(toU){
+        case 'C': return c;
+        case 'F': return c * 9/5 + 32;
+        case 'K': return c + 273.15;
+      }
+    }
+
+    function unitSymbol(u){
+      return u === 'C' ? '°C' : u === 'F' ? '°F' : 'K';
+    }
+
+    function convert(){
+      const raw = input.value.trim();
+      const fromU = from.value;
+      const toU = to.value;
+
+      // Validate number
+      if(raw === '' || !isFinite(raw)){
+        showError('Please enter a valid number.');
+        return;
+      }
+      const value = parseFloat(raw);
+      if (Number.isNaN(value)){
+        showError('Please enter a valid number.');
+        return;
+      }
+
+      // Physical limits (optional)
+      if(!clampPhysicalLimits(value, fromU)){
+        showError(`The entered value is below absolute zero for ${unitSymbol(fromU)}.`);
+        return;
+      }
+
+      const out = convertValue(value, fromU, toU);
+      const text = `${fmt(value)} ${unitSymbol(fromU)} → ${fmt(out)} ${unitSymbol(toU)}`;
+      resultBox.classList.remove('error');
+      resultBox.textContent = text;
+    }
+
+    function showError(msg){
+      resultBox.textContent = msg;
+      resultBox.classList.add('error');
+    }
+
+    btn.addEventListener('click', convert);
+
+    // Press Enter to convert
+    input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter') convert();
+    });
+
+    // Prevent selecting same from/to by auto-switching target
+    from.addEventListener('change', ()=>{
+      if(from.value === to.value){
+        // pick a different unit automatically
+        const options = ['C','F','K'].filter(u=>u!==from.value);
+        to.value = options[0];
+      }
+    });
+  </script>
+</body>
+</html>
